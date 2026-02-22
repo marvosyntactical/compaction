@@ -16,6 +16,7 @@ from .random_subset_keys import RandomSubsetKeysCompaction
 from .random_vector_keys import RandomVectorKeysCompaction
 from .truncate import TruncationCompaction
 from .highest_attention_keys import HighestAttentionKeysCompaction
+from .cluster import ClusterCompaction
 
 __all__ = [
     'CompactionAlgorithm',
@@ -30,6 +31,7 @@ __all__ = [
     'RandomVectorKeysCompaction',
     'TruncationCompaction',
     'HighestAttentionKeysCompaction',
+    'ClusterCompaction',
 ]
 
 # Registry of per-layer-head algorithms with their string names
@@ -45,4 +47,5 @@ ALGORITHM_REGISTRY = {
     'optim_joint': OptimJointCompaction,
     'batched_optim_joint': BatchedOptimJointCompaction,
     'highest_attention_keys': HighestAttentionKeysCompaction,
+    'cluster': ClusterCompaction,
 }

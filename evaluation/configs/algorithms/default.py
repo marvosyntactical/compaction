@@ -51,4 +51,12 @@ config = {
         'nnls_interval': 2,
         'on_policy': True,
     },
+    'AM-Cluster': {
+        'algorithm': 'cluster',
+        'clustering_method': 'kmeans',
+        'nnls_iters': 2,
+        'nnls_lower_bound': exp(-3),
+        'nnls_upper_bound': exp(3),
+        'c2_method': 'lsq',
+    },
 }

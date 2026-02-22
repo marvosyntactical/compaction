@@ -203,6 +203,37 @@ class ReasoningEvaluator:
                 max_len = max(max_len, layer_len)
         return max_len
 
+    def _normalize_cache_lengths(
+        self,
+        cache: Tuple,
+        sliding_layer_indices: Optional[set] = None,
+    ) -> Tuple:
+        """Pad all non-sliding layers to the same seq_len.
+
+        After compaction with per-head budgets, different layers can have
+        different sequence lengths.  per_layer_head.py assumes a single
+        seq_len across all layers, so we pad shorter layers with dummy
+        entries (zeros for C1/C2, -inf for beta so they are ignored).
+        """
+        max_len = self._get_cache_seq_len(cache, sliding_layer_indices)
+        sliding = sliding_layer_indices or set()
+        out = []
+        for i, (C1, beta, C2) in enumerate(cache):
+            if i in sliding or C1.shape[2] == max_len:
+                out.append((C1, beta, C2))
+                continue
+            pad = max_len - C1.shape[2]
+            B, H, _, D = C1.shape
+            C1_pad = torch.zeros(B, H, pad, D, device=C1.device, dtype=C1.dtype)
+            C2_pad = torch.zeros(B, H, pad, D, device=C2.device, dtype=C2.dtype)
+            beta_pad = torch.full((B, H, pad), float('-inf'), device=beta.device, dtype=beta.dtype)
+            out.append((
+                torch.cat([C1, C1_pad], dim=2),
+                torch.cat([beta, beta_pad], dim=2),
+                torch.cat([C2, C2_pad], dim=2),
+            ))
+        return tuple(out)
+
     def _get_effective_seq_len_from_stats(
         self,
         compaction_stats: Optional[Dict],
@@ -521,7 +552,9 @@ class ReasoningEvaluator:
                 else:
                     # Subsequent compactions: we already have compacted_cache from generation
                     # The cache already includes: compacted prefix + last_token_str + generated tokens
-                    pass
+                    # Normalize layer lengths: per-head budgets can leave layers with different
+                    # seq_lens after the first compaction; per_layer_head.py requires uniform length.
+                    compacted_cache = self._normalize_cache_lengths(compacted_cache, sliding_layer_indices)
 
                 # Logical sequence length of the un-compacted cache (full formatted context)
                 logical_seq_len = all_input_ids.shape[1]
